@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TakeIo - Minimalist Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/umd/lucide.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base Styles & Transitions */
+        body { @apply transition-colors duration-700; }
+        * { transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease, transform 0.3s ease; }
+
+        /* Card Glassmorphism */
+        .premium-card {
+            @apply bg-white dark:bg-[#121212] border border-black/5 dark:border-white/5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] dark:shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)];
+            backdrop-filter: blur(20px);
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-main { animation: slideIn 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
+        .btn-hover:hover { transform: translateY(-2px); shadow: 0 10px 20px -5px rgba(0,0,0,0.2); }
+        
+        /* Custom Progress Bar */
+        .progress-glow {
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        .dark .progress-glow {
+            box-shadow: 0 0 15px rgba(255,255,255,0.1);
+        }
+
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-[#f8f9fa] dark:bg-[#050505] min-h-screen flex items-center justify-center p-4">
+
+    <button onclick="toggleTheme()" class="fixed top-8 right-8 p-3 rounded-2xl bg-white dark:bg-[#1a1a1a] shadow-xl border border-black/5 dark:border-white/10 z-50 hover:scale-110 active:scale-90 transition-all">
+        <i id="themeIcon" data-lucide="moon" class="w-5 h-5 dark:text-yellow-400 text-slate-700"></i>
+    </button>
+
+    <main class="w-full max-w-[500px] animate-main opacity-0">
+        <div class="premium-card rounded-[2.5rem] p-8 md:p-10 space-y-10">
+            
+            <header class="text-center space-y-2">
+                <div class="flex justify-center mb-4">
+                    <div class="px-4 py-1 bg-black dark:bg-white text-white dark:text-black text-[9px] font-black tracking-[0.4em] rounded-full">
+                        ENGINE 2026
+                    </div>
+                </div>
+                <h1 class="text-5xl font-[800] tracking-tighter italic dark:text-white">TAKE.IO</h1>
+                <p class="text-[10px] uppercase tracking-[0.5em] opacity-40 font-bold dark:text-white">MP4 High Speed Downloader</p>
+            </header>
+
+            <div class="space-y-6">
+                <div class="relative group">
+                    <input id="urlInput" type="text" placeholder="YouTube URL here..." 
+                        class="w-full bg-gray-50 dark:bg-white/5 border-none p-5 rounded-2xl text-lg focus:ring-2 ring-black/5 dark:ring-white/5 outline-none transition-all dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-600">
+                    <div class="absolute inset-0 rounded-2xl border border-black/5 dark:border-white/5 pointer-events-none group-focus-within:border-black/20 dark:group-focus-within:border-white/20 transition-all"></div>
+                </div>
+
+                <div id="mainProgress" class="hidden space-y-3">
+                    <div class="flex justify-between text-[10px] uppercase tracking-widest font-black dark:text-white/60">
+                        <span id="statusLabel" class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 bg-black dark:bg-white rounded-full animate-ping"></span>
+                            Ready
+                        </span>
+                        <span id="percentText">0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-black/5 dark:bg-white/5 overflow-hidden rounded-full">
+                        <div id="barInner" class="h-full bg-black dark:bg-white w-0 transition-all duration-700 progress-glow"></div>
+                    </div>
+                </div>
+
+                <button onclick="handleDownload()" id="dlBtn" class="btn-hover w-full py-5 bg-black dark:bg-white text-white dark:text-black font-black text-[11px] uppercase tracking-[0.3em] rounded-2xl shadow-2xl transition-all active:scale-[0.98]">
+                    Start Download (MP4)
+                </button>
+            </div>
+
+            <div class="pt-8 border-t border-black/5 dark:border-white/5">
+                <input type="file" id="fileInput" accept="video/mp4" class="hidden" onchange="handleFileSelect()">
+                <label for="fileInput" id="dropzone" class="group flex flex-col items-center justify-center w-full p-8 border-2 border-dashed border-black/5 dark:border-white/5 rounded-[2rem] cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-all">
+                    <i data-lucide="upload" class="w-5 h-5 mb-3 opacity-20 dark:opacity-40 group-hover:scale-110 group-hover:opacity-100 transition-all dark:text-white"></i>
+                    <span id="fileNameDisplay" class="text-[9px] font-black uppercase tracking-[0.2em] opacity-30 dark:text-white dark:opacity-40">Local MP4 to MP3</span>
+                </label>
+                
+                <button onclick="uploadAndConvert()" id="upBtn" class="hidden mt-4 w-full py-4 border border-black/10 dark:border-white/10 dark:text-white font-black text-[10px] uppercase tracking-[0.3em] rounded-2xl hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all animate-in zoom-in">
+                    Convert File Now
+                </button>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-[9px] tracking-[0.5em] uppercase opacity-20 dark:text-white">
+            © 2026 TAKEIO • Minimalist High-End
+        </footer>
+    </main>
+
+    <div id="successPopup" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 transform translate-y-32 opacity-0 transition-all duration-1000">
+        <div class="bg-white dark:bg-[#1a1a1a] px-8 py-5 rounded-3xl shadow-2xl border border-black/5 dark:border-white/10 flex items-center gap-4">
+            <div class="bg-green-500 p-2 rounded-xl">
+                <i data-lucide="check" class="w-4 h-4 text-white"></i>
+            </div>
+            <div>
+                <h4 class="text-[10px] font-black uppercase tracking-tight dark:text-white">Done, Bro!</h4>
+                <p id="popupFilename" class="text-[8px] opacity-40 uppercase tracking-widest dark:text-white">File saved</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- THEME LOGIC ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.setAttribute('data-lucide', 'moon');
+            } else {
+                html.classList.add('dark');
+                icon.setAttribute('data-lucide', 'sun');
+            }
+            lucide.createIcons();
+        }
+
+        // --- CORE LOGIC ---
+        const socket = io();
+        let currentSocketId;
+        socket.on('connect', () => currentSocketId = socket.id);
+
+        const bar = document.getElementById('barInner');
+        const percentTxt = document.getElementById('percentText');
+        const statusLabel = document.getElementById('statusLabel');
+        const progressContainer = document.getElementById('mainProgress');
+
+        socket.on('downloadProgress', (data) => {
+            progressContainer.classList.remove('hidden');
+            const percent = Math.round(data.progress);
+            bar.style.width = percent + '%';
+            percentTxt.innerText = percent + '%';
+            statusLabel.innerText = data.status || "Downloading...";
+        });
+
+        async function handleDownload() {
+            const urlInput = document.getElementById('urlInput');
+            const url = urlInput.value;
+            const btn = document.getElementById('dlBtn');
+
+            if (!url) return alert("Paste linknya dulu!");
+
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            progressContainer.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, type: 'mp4', socketId: currentSocketId })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    triggerPopup(result.fileName);
+                    urlInput.value = "";
+                }
+            } catch (err) {
+                alert("Server error!");
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                setTimeout(() => progressContainer.classList.add('hidden'), 5000);
+            }
+        }
+
+        function handleFileSelect() {
+            const file = document.getElementById('fileInput').files[0];
+            const display = document.getElementById('fileNameDisplay');
+            const upBtn = document.getElementById('upBtn');
+            if (file) {
+                display.innerText = file.name;
+                upBtn.classList.remove('hidden');
+            }
+        }
+
+        function uploadAndConvert() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const xhr = new XMLHttpRequest();
+            progressContainer.classList.remove('hidden');
+            statusLabel.innerText = "Uploading...";
+
+            xhr.upload.onprogress = (e) => {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                bar.style.width = percent + '%';
+                percentTxt.innerText = percent + '%';
+                if (percent === 100) statusLabel.innerText = "Converting...";
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    triggerPopup(res.fileName);
+                    document.getElementById('upBtn').classList.add('hidden');
+                }
+            };
+
+            xhr.open('POST', '/upload-convert', true);
+            xhr.send(formData);
+        }
+
+        function triggerPopup(fileName) {
+            const popup = document.getElementById('successPopup');
+            document.getElementById('popupFilename').innerText = fileName;
+            popup.classList.remove('translate-y-32', 'opacity-0');
+            popup.classList.add('translate-y-0', 'opacity-100');
+            setTimeout(() => {
+                popup.classList.add('translate-y-32', 'opacity-0');
+                popup.classList.remove('translate-y-0', 'opacity-100');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

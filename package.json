@@ -1,0 +1,35 @@
+{
+  "name": "takeio",
+  "version": "1.0.0",
+  "description": "TakeIo adalah platform web modern yang bikin kamu bisa download video dari YouTube dengan cepat, simpel, tanpa ribet. kamu tinggal paste link, klik, ambil file beres",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev:css": "tailwindcss -i ./src/input.css -o ./public/output.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gansputra/TakeIo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Gansputra/TakeIo/issues"
+  },
+  "homepage": "https://github.com/Gansputra/TakeIo#readme",
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "fluent-ffmpeg": "^2.1.3",
+    "multer": "^2.0.2",
+    "socket.io": "^4.8.3",
+    "youtube-dl-exec": "^3.0.29"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "tailwindcss": "^4.1.18"
+  }
+}
